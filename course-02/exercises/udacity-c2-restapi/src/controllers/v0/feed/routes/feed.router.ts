@@ -3,10 +3,11 @@ import { FeedItem } from '../models/FeedItem';
 import { requireAuth } from '../../users/routes/auth.router';
 import * as AWS from '../../../../aws';
 
+
 const router: Router = Router();
 
 // Get all feed items
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', requireAuth, async (req: Request, res: Response) => {
     const items = await FeedItem.findAndCountAll({order: [['id', 'DESC']]});
     items.rows.map((item) => {
             if(item.url) {
@@ -19,13 +20,56 @@ router.get('/', async (req: Request, res: Response) => {
 //@TODO
 //Add an endpoint to GET a specific resource by Primary Key
 
+router.get(
+    '/:id', 
+    requireAuth,
+    async (req: Request, res: Response) => {
+        let { id } = req.params;
+
+        const feedItems = await FeedItem.findAll({where:{
+            'id': id
+        }});
+
+        const resultsExist = feedItems && feedItems.length;
+        if (resultsExist) {
+            return res.status(200).send(feedItems[0]);
+        }
+
+        return res.status(404).send("not found");
+    }
+);
+
+
 // update a specific resource
 router.patch('/:id', 
     requireAuth, 
     async (req: Request, res: Response) => {
         //@TODO try it yourself
-        res.status(500).send("not implemented")
-});
+
+        console.log("req.data", req.body)
+        let { id } = req.params;
+
+        const feedItem = await FeedItem.findOne({where:{
+            'id': id
+        }});
+
+        if (feedItem) {
+            if (req.body.caption) {
+                feedItem.set('caption', req.body.caption);
+            }
+
+            if (req.body.url) {
+                feedItem.set('url', req.body.url);
+            }
+
+            feedItem.save();
+
+            return res.status(201).send(feedItem);
+        }
+
+        return res.status(404).send("not found");
+    }
+);
 
 
 // Get a signed url to put a new item in the bucket
